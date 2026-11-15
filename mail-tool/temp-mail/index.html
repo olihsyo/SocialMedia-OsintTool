@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XN Temp Mail</title>
+<style>
+  :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --text: #f8fafc; --dim: #94a3b8; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+  .container { width: 100%; max-width: 800px; }
+  .header { text-align: center; margin-bottom: 20px; }
+  .email-box { background: var(--panel); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 1.2rem; border: 1px solid #334155; }
+  .btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+  .btn:hover { opacity: 0.8; }
+  .inbox { margin-top: 20px; background: var(--panel); border-radius: 10px; overflow: hidden; border: 1px solid #334155; }
+  .msg-item { padding: 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
+  .msg-item:hover { background: #334155; }
+  .msg-from { font-weight: bold; color: var(--accent); font-size: 0.9rem; }
+  .msg-subj { margin-top: 5px; }
+  .msg-time { font-size: 0.8rem; color: var(--dim); float: right; }
+  .reader { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 10; padding: 20px; display: none; overflow-y: auto; }
+  .reader.open { display: block; }
+  .reader-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+  .reader-body { background: #fff; color: #000; padding: 20px; border-radius: 10px; }
+  .iframe-wrap { width: 100%; height: 500px; border: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>XN Temp Mail</h1>
+    <p style="color:var(--dim)">Free, fast, private.</p>
+  </div>
+  <div class="email-box">
+    <span id="email-addr">Loading...</span>
+    <button class="btn" id="copy-btn">Copy</button>
+  </div>
+  <div class="inbox">
+    <div id="inbox-list" style="padding: 20px; text-align: center; color: var(--dim);">Waiting for emails...</div>
+  </div>
+</div>
+
+<div class="reader" id="reader">
+  <div class="reader-header">
+    <button class="btn" onclick="document.getElementById('reader').classList.remove('open')">Close</button>
+  </div>
+  <h2 id="r-subject"></h2>
+  <p id="r-from" style="color: var(--dim)"></p>
+  <div class="reader-body" id="r-body"></div>
+</div>
+
+<script>
+  let token = localStorage.getItem('mail_token');
+  let currentEmail = localStorage.getItem('mail_email');
+  
+  async function init() {
+    if (!token || !currentEmail) {
+      const res = await fetch('api.php?action=generate').then(r => r.json());
+      if (res.error) { alert(res.error); return; }
+      token = res.token;
+      currentEmail = res.email;
+      localStorage.setItem('mail_token', token);
+      localStorage.setItem('mail_email', currentEmail);
+    }
+    document.getElementById('email-addr').textContent = currentEmail;
+    loadInbox();
+    setInterval(loadInbox, 10000);
+  }
+
+  async function loadInbox() {
+    const res = await fetch(`api.php?action=inbox&token=${token}`).then(r => r.json());
+    const list = document.getElementById('inbox-list');
+    if (!res || res.length === 0) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--dim)">No messages yet. Inbox is auto-refreshing.</div>';
+      return;
+    }
+    list.innerHTML = res.map(m => `
+      <div class="msg-item" onclick="openMsg('${m.id}')">
+        <span class="msg-time">${new Date(m.createdAt).toLocaleTimeString()}</span>
+        <div class="msg-from">${m.from.name || m.from.address}</div>
+        <div class="msg-subj">${m.subject}</div>
+      </div>
+    `).join('');
+  }
+
+  async function openMsg(id) {
+    const res = await fetch(`api.php?action=message&token=${token}&id=${id}`).then(r => r.json());
+    document.getElementById('r-subject').textContent = res.subject;
+    document.getElementById('r-from').textContent = `From: ${res.from.name || ''} <${res.from.address}>`;
+    const body = document.getElementById('r-body');
+    if (res.html && res.html.length > 0) {
+      body.innerHTML = `<iframe class="iframe-wrap" sandbox srcdoc="${res.html[0].replace(/"/g, '&quot;')}"></iframe>`;
+    } else {
+      body.textContent = res.text || 'No content';
+    }
+    document.getElementById('reader').classList.add('open');
+  }
+
+  document.getElementById('copy-btn').onclick = () => {
+    navigator.clipboard.writeText(currentEmail);
+    document.getElementById('copy-btn').textContent = 'Copied!';
+    setTimeout(() => document.getElementById('copy-btn').textContent = 'Copy', 2000);
+  };
+
+  init();
+</script>
+</body>
+</html>
