@@ -1,4 +1,0 @@
-# Netscape HTTP Cookie File
-# Written by HTTrack Website Copier
-#HttpOnly_.facebook.com	TRUE	/	TRUE	1802285203	fr	0rYDSApjwZnnjqNxc..Bq9gmT..AAA.0.0.Bq9gmT.AWe_9244pqbevvKEeKtHR8zGkjg
-#HttpOnly_.facebook.com	TRUE	/	TRUE	1829069203	datr	kwn2aia8cKLL_gvdg5KQdn79
